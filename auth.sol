@@ -12,7 +12,7 @@ abstract contract auth {
     function isOwner(address account) public view returns (bool) {
         return account == _owner;
     }
-    modifier owned() {
+    modifier onlyOwner() {
         require(isOwner(msg.sender)); _;
     }
     modifier auth() {
