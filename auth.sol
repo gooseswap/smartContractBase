@@ -1,6 +1,6 @@
 pragma solidity ^0.7.4;
 
-abstract contract Auth {
+abstract contract auth {
     address payable _owner;
     mapping (address => bool) _whiteList;
     mapping (address => bool) _blackList;
