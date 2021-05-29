@@ -30,6 +30,9 @@ import './safeMath.sol';
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IBEP20-approve}.
  */
+ 
+ abstract contract Ownable is auth(){}
+ 
 contract BEP20 is Context, IBEP20, Ownable {
     using SafeMath for uint256;
 
