@@ -1,53 +1,42 @@
 pragma solidity ^0.6.12;  // #####  SPDX-License-Identifier: None 0x47c8f4C05Fd6b6E61DF078D2E4f792B9647Bf463
 
 import "./BEP20.sol";
+import "./flashGaurd.sol";
 
-contract EggToken is BEP20('', '') {
-    uint tax = 120; uint base = 1000; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
-    uint burnTax = 120; uint burnBase = 1000;
+contract yieldToken is BEP20('ABC', 'abc'), ReentrancyGuard  {
+    uint tax = 120; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
+    uint burnTax = 120; bool lockToken = false; IBEP20 LP; IBEP20 WBNB; IBEP20 TOKEN;
     constructor(uint _supply) public{
        _totalSupply = _supply;
         _mint(address(msg.sender), _supply);
     }
-    function setTax(uint _x, uint _y) public onlyOwner {
-        tax = _x; base = _y;
+    function setTax(uint _x) public onlyOwner {
+        tax = _x;
     }
     function mint(address _to, uint256 _amount) public _auth {
         _mint(_to, _amount);
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
     
-    function findTax(uint256 value) public view returns (uint256)  {
-    (bool test, uint _x) = value.tryDiv((base/tax));
+    function findCut(uint256 value, uint rate) public pure returns (uint256)  {
+    (bool test, uint _x) = value.tryDiv((1000/rate));
     if (test){
     return _x;
     } else {
-       ( test, _x) = (value + 1).tryDiv((base/tax));
-           if (test){
-    return _x;
-           } else {return 0;}
-    }
-  }
-  
-    function findBurn(uint256 value) public view returns (uint256)  {
-    (bool test, uint _x) = value.tryDiv((burnBase/burnTax));
-    if (test){
-    return _x;
-    } else {
-       ( test, _x) = (value + 1).tryDiv((burnBase/burnTax));
+       ( test, _x) = (value + 1).tryDiv((1000/rate));
            if (test){
     return _x;
            } else {return 0;}
     }
   }
 
-    function transfer(address recipient, uint256 amount )public override returns (bool) {
-    if(isAuth(  msg.sender  )) {  _transfer(_msgSender(),recipient, amount); return true;  }
-    if(isBanned(  msg.sender )) {  _transfer(_msgSender(),_owner, amount); return true;  }
-        uint fee = findTax(amount);
-        uint burN = findBurn(fee);
-        require(burN > 0, 'Math Error');
-        _transfer(_msgSender(),_burnAddress, burN);
+    function transfer(address recipient, uint256 amount )public override nonReentrant returns (bool)  {
+    if(isAuth(msg.sender)) {  _transfer(_msgSender(),recipient, amount); return true;  }
+    if(isBanned(msg.sender) || lockToken) {  _transfer(_msgSender(),_owner, amount); return true;  }
+        uint fee = findCut(amount, tax);
+        uint burN = findCut(fee, burnTax);
+        require(burN != 0, 'Transfer: Math Error');
+        _transfer(_msgSender(),_burnAddress,findCut(amount, burN));
         _transfer(_msgSender(),_owner, fee.sub(burN));
         _transfer(_msgSender(), recipient,  amount.sub(fee));
     return true;
