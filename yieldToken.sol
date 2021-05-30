@@ -5,11 +5,20 @@ import "./flashGaurd.sol";
 
 contract yieldToken is BEP20('ABC', 'abc'), ReentrancyGuard  {
     uint tax = 120; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
-    uint burnTax = 120; bool lockToken = false; IBEP20 LP; IBEP20 WBNB; IBEP20 TOKEN;
+    uint burnTax = 120; bool lockToken = false; address LP; IBEP20 _TOKEN; IBEP20 _WBNB;
+   
     constructor(uint _supply) public{
        _totalSupply = _supply;
         _mint(address(msg.sender), _supply);
     }
+
+    function quote() public view returns (uint,uint){
+        return(
+            _WBNB.balanceOf(LP).div(_TOKEN.balanceOf(LP)) ,
+           _TOKEN.balanceOf(LP).div(_WBNB.balanceOf(LP))
+        );
+    }
+    
     function setTax(uint _x) public onlyOwner {
         tax = _x;
     }
