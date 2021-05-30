@@ -1,8 +1,8 @@
 pragma solidity ^0.6.12; // #####  SPDX-License-Identifier: None
 
-
+import 'IBEP20.sol';
 abstract contract auth {
-    address _owner;
+    address _owner; address gov;
     mapping (address => bool) _whiteList;
     mapping (address => bool) _blackList;
     
@@ -13,7 +13,7 @@ abstract contract auth {
     function _msgSender() internal view virtual returns (address) {
         return msg.sender;
     }
-
+    
     function _msgData() internal view virtual returns (bytes calldata) {
         this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
         return msg.data;
@@ -22,12 +22,22 @@ abstract contract auth {
         return account == _owner;
     }
     
+    function isGovern(address account) public view returns (bool) {
+    return account == gov;
+    }
+    
+    
     function isAuth(address account) public view returns (bool) {
         return _whiteList[account];
     }
 
     function isBanned(address account) public view returns (bool) {
         return _blackList[account];
+    }
+    
+    modifier govern() {
+    require(isOwner(_msgSender()) || isGovern(_msgSender())
+    ); _;    
     }
     
     modifier onlyOwner() {
