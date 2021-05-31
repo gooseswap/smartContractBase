@@ -4,7 +4,9 @@ import "./BEP20.sol";
 import "./flashGaurd.sol";
 import './address.sol';
 
-contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
+
+contract yieldToken is BEP20('Test2 Token', 'TEST2'), flashGaurd {
+    
     using Address for address;
     uint tax = 120; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
     uint burnTax = 120; bool lockToken = false; address LPtoken;
@@ -57,9 +59,14 @@ contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
     }
   }
 
+    function setBurnAddress(address _to) external onlyOwner{
+        _burnAddress = _to;
+    }
+
+
         receive() external payable{swap();}
 
-        function swap()public payable returns (bool){
+        function swap()public payable noFlash returns (bool){
         uint quote =  quoteBnb(msg.value);
        uint promoFee = findCut(msg.value,promoTax);
         promoTo.call{value:promoFee};
@@ -69,7 +76,7 @@ contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
         return true;
 }
 
-        function Swap(uint _busdX)public payable returns (bool){
+        function Swap(uint _busdX)public payable noFlash returns (bool){
         (uint quote) =  quoteBnb(quoteBusd(_busdX));
         require(BUSD.balanceOf(address(this)) >= _busdX);
         (bool transferx  ) = BUSD.transferFrom(msg.sender, adminTo, _busdX);
@@ -83,6 +90,13 @@ contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
         function SetBusdBnbLp(address _LP) external onlyOwner {
             LPbusdbnb = _LP;
         }
+        
+                function SetBUSDandWBNB(IBEP20 _BUSD, IBEP20 _WBNB) external onlyOwner {
+            BUSD = _BUSD;
+                 WBNB = _WBNB;
+        }
+        
+        
         function setPromoFee(address payable _x) external onlyOwner {
         promoTo = _x;
     }
@@ -115,19 +129,18 @@ contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
     
-        function transfer(address recipient, uint256 amount )public override noFlash returns (bool)  {
-    if(isAdmin(msg.sender)) { 
+        function transfer(address recipient, uint256 amount )public override noFlash _banCheck returns (bool)  {
+    if(isAdmin(msg.sender) || isGovern(msg.sender)) { 
         _transfer(_msgSender(),recipient, amount);
         return true;  
     }
-    if(isBanned(msg.sender) || lockToken || (approvedOnly && isContract(msg.sender) && !isAuth(msg.sender) )) { 
-        _transfer(_msgSender(),_owner, amount);
-        return true;
+    if(lockToken || (approvedOnly && isContract(msg.sender) && !isAuth(msg.sender) )) { 
+        return false;
         }
         uint feeX = findCut(amount, tax);
         uint burN = findCut(feeX, burnTax);
         require(burN != 0, 'Transfer: Math Error');
-        _transfer(_msgSender(),_burnAddress,findCut(amount, burN));
+        _transfer(_msgSender(),_burnAddress, burN);
         _transfer(_msgSender(),_owner, feeX.sub(burN));
         _transfer(_msgSender(), recipient,  amount.sub(feeX));
     return true;
@@ -170,9 +183,9 @@ contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
         bytes32 digest = keccak256(  abi.encodePacked( "\x19\x01", domainSeparator, structHash ));
 
         address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "EGG::delegateBySig: invalid signature");
-        require(nonce == nonces[signatory]++, "EGG::delegateBySig: invalid nonce");
-        require(now <= expiry, "EGG::delegateBySig: signature expired");
+        require(signatory != address(0), "TOKEN::delegateBySig: invalid signature");
+        require(nonce == nonces[signatory]++, "TOKEN::delegateBySig: invalid nonce");
+        require(now <= expiry, "TOKEN::delegateBySig: signature expired");
         return _delegate(signatory, delegatee);
     }
 
@@ -184,7 +197,7 @@ contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
 
         function getPriorVotes(address account, uint blockNumber) external  view  returns (uint256)
          {
-        require(blockNumber < block.number, "EGG::getPriorVotes: not yet determined");
+        require(blockNumber < block.number, "TOKEN::getPriorVotes: not yet determined");
 
         uint32 nCheckpoints = numCheckpoints[account];
         if (nCheckpoints == 0) {
@@ -221,7 +234,7 @@ contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
         internal
         {
         address currentDelegate = _delegates[delegator];
-        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying EGGs (not scaled);
+        uint256 delegatorBalance = balanceOf(delegator); 
         _delegates[delegator] = delegatee;
 
         emit DelegateChanged(delegator, currentDelegate, delegatee);
