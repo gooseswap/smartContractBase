@@ -1,4 +1,4 @@
-pragma solidity >=0.6.4;
+pragma solidity >=0.6.4; // #####  SPDX-License-Identifier: None 
 
 interface IBEP20 {
     /**
