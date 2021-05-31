@@ -5,7 +5,6 @@ import "./IBEP20.sol";
 import "./SafeBEP20.sol";
 import "./auth.sol";
 import "./yieldToken.sol";
-contract Ownable is auth (){}
 contract yieldFarm is Ownable {
     using SafeMath for uint256;
     using SafeBEP20 for IBEP20;
@@ -32,13 +31,11 @@ contract yieldFarm is Ownable {
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
     constructor(
         yieldToken _token,
-        address _devaddr,
         address _feeAddress,
         uint256 _tokenPerBlock,
         uint256 _startBlock
     ) public {
         token = _token;
-        devaddr = _devaddr;
         feeAddress = _feeAddress;
         tokenPerBlock = _tokenPerBlock;
         startBlock = _startBlock;
@@ -76,8 +73,7 @@ contract yieldFarm is Ownable {
         uint256 accTokenPerShare = pool.accTokenPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
-            uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-            uint256 tokenReward = multiplier.mul(tokenPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
+            uint256 tokenReward = tokenPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
             accTokenPerShare = accTokenPerShare.add(tokenReward.mul(1e12).div(lpSupply));
         }
         return user.amount.mul(accTokenPerShare).div(1e12).sub(user.rewardDebt);
@@ -98,9 +94,8 @@ contract yieldFarm is Ownable {
             pool.lastRewardBlock = block.number;
             return;
         }
-        uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-        uint256 tokenReward = multiplier.mul(tokenPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-        token.mint(devaddr, tokenReward.div(10));
+        uint256 tokenReward = tokenPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
+        token.mint(_owner, tokenReward.div(10));
         token.mint(address(this), tokenReward);
         pool.accTokenPerShare = pool.accTokenPerShare.add(tokenReward.mul(1e12).div(lpSupply));
         pool.lastRewardBlock = block.number;
