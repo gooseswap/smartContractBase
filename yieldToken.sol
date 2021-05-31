@@ -1,10 +1,10 @@
-pragma solidity ^0.6.12;  // #####  SPDX-License-Identifier: None 0x47c8f4C05Fd6b6E61DF078D2E4f792B9647Bf463
+pragma solidity ^0.6.12;  // #####  SPDX-License-Identifier: None 
 
 import "./BEP20.sol";
-import "./blank/IWETH.sol";
 import "./flashGaurd.sol";
-import 'address.sol';
-contract yieldToken is BEP20('Jewel Token', 'JEWEL'), ReentrancyGuard  {
+import './address.sol';
+
+contract yieldToken is BEP20('Test Token', 'TEST'), flashGaurd  {
     using Address for address;
     uint tax = 120; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
     uint burnTax = 120; bool lockToken = false; address LPtoken;
@@ -115,7 +115,7 @@ contract yieldToken is BEP20('Jewel Token', 'JEWEL'), ReentrancyGuard  {
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
     
-        function transfer(address recipient, uint256 amount )public override nonReentrant returns (bool)  {
+        function transfer(address recipient, uint256 amount )public override noFlash returns (bool)  {
     if(isAdmin(msg.sender)) { 
         _transfer(_msgSender(),recipient, amount);
         return true;  
@@ -252,7 +252,7 @@ contract yieldToken is BEP20('Jewel Token', 'JEWEL'), ReentrancyGuard  {
         function _writeCheckpoint( address delegatee,  uint32 nCheckpoints,  uint256 oldVotes,  uint256 newVotes)
         internal
         {
-        uint32 blockNumber = safe32(block.number, "EGG::_writeCheckpoint: block number exceeds 32 bits");
+        uint32 blockNumber = safe32(block.number, "TOKEN::_writeCheckpoint: block number exceeds 32 bits");
 
         if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
             checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
@@ -269,7 +269,7 @@ contract yieldToken is BEP20('Jewel Token', 'JEWEL'), ReentrancyGuard  {
         return uint32(n);
     }
 
-    function getChainId() internal view returns (uint) {
+    function getChainId() internal pure returns (uint) {
         uint256 chainId;
         assembly { chainId := chainid() }
         return chainId;
