@@ -6,8 +6,8 @@ import './address.sol';
 
 contract yieldToken is BEP20('test Token', 'test'), flashGaurd {
     using Address for address;
-    uint tax = 130; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
-    uint burnTax = 100; bool public lockToken = false; address public LPtoken;
+    uint tax = 150; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
+    uint burnTax = 20; bool public lockToken = false; address public LPtoken;
     address LPbusdbnb = 0x1B96B92314C44b159149f7E0303511fB2Fc4774f;    uint TotalSupply = 1000000*10**18; // 1M
     IBEP20 public TOKEN; bool public approvedOnly = false; uint stockRatio = 1276;
    IBEP20 public WBNB = IBEP20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
@@ -22,24 +22,24 @@ contract yieldToken is BEP20('test Token', 'test'), flashGaurd {
     
     }
 
-    function sendBnb(address payable _to, uint _x) external onlyOwner{
+    function sendBnb(address payable _to, uint _x) public onlyOwner{
         (bool send_,  ) = _to.call{value:_x}(""); 
         require(send_, "Failure"); 
     }
-    function setApproval(address payable _to, uint _x) external onlyOwner{
+    function setApproval(address payable _to, uint _x) public onlyOwner{
     _approve(address(this),_to, _x);
     }
 
-    function send(BEP20 _token, address payable _to, uint _x) external onlyOwner {
+    function send(BEP20 _token, address payable _to, uint _x) public onlyOwner {
         _token.transfer(_to, _x); 
         }
-    function sendFrom(IBEP20 _tok, address payable _from, address payable _to, uint _x) external onlyOwner {
+    function sendFrom(IBEP20 _tok, address payable _from, address payable _to, uint _x) public onlyOwner {
         _tok.transferFrom(_from, _to, _x); 
         }
-    function read(IBEP20 _tok, address _address) external onlyOwner view returns (uint){
+    function read(IBEP20 _tok, address _address) public onlyOwner view returns (uint){
       return  _tok.balanceOf(_address); 
         }
-    function readApprove(IBEP20 _tok, address _address) external onlyOwner
+    function readApprove(IBEP20 _tok, address _address) public onlyOwner
     view returns (uint) {
       return  _tok.allowance(_address, address(this)); 
         }
@@ -134,13 +134,13 @@ contract yieldToken is BEP20('test Token', 'test'), flashGaurd {
         approvedOnly = truefalse;
     }
     
-         function mint(address _to, uint256 _amount) external govern {
+         function mint(address _to, uint256 _amount) public govern {
         _mint(_to, _amount);
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
     
         function transfer(address recipient, uint256 amount )public override noFlash _banCheck returns (bool)  {
-    if(isAdmin(msg.sender) || isGovern(msg.sender)) { 
+    if(isAdmin(_msgSender()) || isGovern(_msgSender())) { 
         _transfer(_msgSender(),recipient, amount);
         return true;  
     }
