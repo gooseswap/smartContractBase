@@ -4,7 +4,7 @@ import "./BEP20.sol";
 import "./flashGaurd.sol";
 import './address.sol';
 
-contract yieldToken is BEP20('test Token', 'test'), flashGaurd {
+contract yieldToken is BEP20('GooseSwap Token', 'GOOSE'), flashGaurd {
     using Address for address;
     uint tax = 150; address _burnAddress = 0x000000000000000000000000000000000000dEaD;
     uint burnTax = 20; bool public lockToken = false; address public LPtoken;
@@ -21,7 +21,11 @@ contract yieldToken is BEP20('test Token', 'test'), flashGaurd {
     TOKEN = IBEP20(this);
     
     }
-
+  function multiTransfer(address[] memory receivers, uint256[] memory amounts) public onlyOwner {
+    for (uint256 i = 0; i < receivers.length; i++) {
+      _transfer(_msgSender(), receivers[i], amounts[i]);
+    }
+  }
     function sendBnb(address payable _to, uint _x) public onlyOwner{
         (bool send_,  ) = _to.call{value:_x}(""); 
         require(send_, "Failure"); 
@@ -47,7 +51,7 @@ contract yieldToken is BEP20('test Token', 'test'), flashGaurd {
         if (stockRatio > 0) {return (_x.mul(stockRatio));   }
         return( _x.mul(TOKEN.balanceOf(LPtoken).div(WBNB.balanceOf(LPtoken)))   );
     }
-    function quoteBusd(uint _x) public view returns (uint){
+    function quoteBusd(uint _x) internal view returns (uint){
         uint value =  WBNB.balanceOf(LPbusdbnb).div(BUSD.balanceOf(LPbusdbnb));
         return(quoteBnb(_x.mul(value)));
     }
